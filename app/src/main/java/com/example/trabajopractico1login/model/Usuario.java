@@ -1,6 +1,8 @@
 package com.example.trabajopractico1login.model;
 
-public class Usuario {
+import java.io.Serializable;
+
+public class Usuario implements Serializable {
     private Long dni;
     private String nombre;
     private String apellido;
