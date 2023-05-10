@@ -5,48 +5,81 @@ import android.content.SharedPreferences;
 
 import com.example.trabajopractico1login.model.Usuario;
 
-public class ApiClient {
-    private static SharedPreferences sp;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 
-    private static SharedPreferences conectar (Context context){
-        if(sp == null){
-            sp = context.getSharedPreferences("datos", Context.MODE_PRIVATE);
+public class ApiClient {
+    private static File archivo;
+
+    private static File conectar (File dir){
+        if(archivo == null){
+            archivo=new File(dir,"personal.dat");
         }
-        return sp;
+        return archivo;
     }
 
     public static void guardar(Context context, Usuario usuario){
-        SharedPreferences sp = conectar(context);
-        SharedPreferences.Editor editor = sp.edit();
-        editor.putLong("dni", usuario.getDni());
-        editor.putString("nombre", usuario.getNombre());
-        editor.putString("apellido", usuario.getApellido());
-        editor.putString("email", usuario.getEmail());
-        editor.putString("password", usuario.getPassword());
-        editor.commit();
+        File archivo=conectar(context.getFilesDir());
+        try {
+            FileOutputStream fos = new FileOutputStream(archivo);
+            BufferedOutputStream bos = new BufferedOutputStream(fos);
+            ObjectOutputStream oos = new ObjectOutputStream(bos);
+            oos.writeObject(usuario);
+            bos.flush();
+            oos.close();
+        } catch (FileNotFoundException e) {
+            throw new RuntimeException(e);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public static Usuario leer(Context context){
-        SharedPreferences sp = conectar(context);
-        Long dni = sp.getLong("dni", -1);
-        String nombre = sp.getString("nombre", "nn");
-        String apellido = sp.getString("apellido", "nn");
-        String email = sp.getString("email", "nn");
-        String password = sp.getString("password", "nn");
-        return new Usuario(dni, nombre, apellido, email, password);
+        File archivo = conectar(context.getFilesDir());
+        try{
+            FileInputStream fis=new FileInputStream(archivo);
+            BufferedInputStream bis=new BufferedInputStream(fis);
+            ObjectInputStream ois=new ObjectInputStream(bis);
+            Usuario miUsuario=(Usuario)ois.readObject();
+            ois.close();
+
+            return miUsuario;
+        }catch (FileNotFoundException e){
+            return null;
+        }catch (IOException e){
+            return null;
+        }catch (ClassNotFoundException e){
+            return null;
+        }
     }
 
     public static Usuario login(Context context, String mail, String pass){
-        SharedPreferences sp = conectar(context);
-        Long dni = sp.getLong("dni", -1);
-        String nombre = sp.getString("nombre", "nn");
-        String apellido = sp.getString("apellido", "nn");
-        String email = sp.getString("email", "nn");
-        String password = sp.getString("password", "nn");
+        File archivo = conectar(context.getFilesDir());
+        try{
+            FileInputStream fis=new FileInputStream(archivo);
+            BufferedInputStream bis=new BufferedInputStream(fis);
+            ObjectInputStream ois=new ObjectInputStream(bis);
+            Usuario miUsuario=(Usuario)ois.readObject();
+            ois.close();
 
-        if(email.equals(mail) && password.equals(pass)){
-            return new Usuario(dni, nombre, apellido, email, password);
+            if(miUsuario.getEmail().equals(mail) && miUsuario.getPassword().equals(pass)){
+                return miUsuario;
+            }
+            return null;
+        }catch (FileNotFoundException e){
+            return null;
+        }catch (IOException e){
+            return null;
+        }catch (ClassNotFoundException e){
+            return null;
         }
-        return null;
     }
+
 }
