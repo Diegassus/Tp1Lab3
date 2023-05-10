@@ -1,16 +1,32 @@
 package com.example.trabajopractico1login.ui.registro;
 
+import static android.Manifest.permission_group.CAMERA;
+
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.lifecycle.Observer;
 import androidx.lifecycle.ViewModelProvider;
 
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
+import android.provider.Settings;
+import android.view.View;
+import android.widget.Toast;
 
 import com.example.trabajopractico1login.databinding.ActivityRegistroBinding;
 
 public class RegistroActivity extends AppCompatActivity {
     private ActivityRegistroBinding binding;
     private RegistroActivityViewModel viewModel;
+    private static int REQUEST_IMAGE_CAPTURE=1;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -27,12 +43,105 @@ public class RegistroActivity extends AppCompatActivity {
         });
 
         Intent intent = getIntent();
-        if(intent.getBooleanExtra("logueado",false)){
-            viewModel.cargarUser();
-        }
+
+
 
         binding.btnCargar.setOnClickListener(view -> {
             viewModel.registrar(binding.etDni.getText().toString(), binding.etNombre.getText().toString(), binding.etApellido.getText().toString(), binding.etCorreo.getText().toString(), binding.etClave.getText().toString());
         });
+
+        validaPermisos();
+        viewModel.getFoto().observe(this, new Observer<Bitmap>() {
+            @Override
+            public void onChanged(Bitmap bitmap) {
+                binding.ivFoto.setImageBitmap(bitmap);
+            }
+        });
+
+        binding.btnFotografiar.setOnClickListener(view -> tomarFoto(view));
+        viewModel.cargarUser(intent);
+    }
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+
+        viewModel.respuetaDeCamara(requestCode,resultCode,data,REQUEST_IMAGE_CAPTURE);
+    }
+
+    public void tomarFoto(View v){
+//startActivityForResult es otra forma de iniciar una activity, pero esperando desde donde la llamé un resultado
+        Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE);
+        }
+    }
+
+    private boolean validaPermisos() {
+
+        if(Build.VERSION.SDK_INT<Build.VERSION_CODES.M){
+            return true;
+        }
+
+        if((checkSelfPermission(CAMERA)== PackageManager.PERMISSION_GRANTED)){
+            return true;
+        }
+
+        if((shouldShowRequestPermissionRationale(CAMERA))){
+            cargarDialogoRecomendacion();
+        }else{
+            requestPermissions(new String[]{CAMERA},100);
+        }
+
+        return false;
+    }
+
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if(requestCode==100){
+            if(grantResults.length==2 && grantResults[0]==PackageManager.PERMISSION_GRANTED
+                    && grantResults[1]==PackageManager.PERMISSION_GRANTED){
+
+            }else{
+                solicitarPermisosManual();
+            }
+        }
+
+    }
+
+    private void solicitarPermisosManual() {
+        final CharSequence[] opciones={"si","no"};
+        final AlertDialog.Builder alertOpciones=new AlertDialog.Builder(this);
+        alertOpciones.setTitle("¿Desea configurar los permisos de forma manual?");
+        alertOpciones.setItems(opciones, new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                if (opciones[i].equals("si")){
+                    Intent intent=new Intent();
+                    intent.setAction(Settings.ACTION_APPLICATION_DETAILS_SETTINGS);
+                    Uri uri=Uri.fromParts("package",getPackageName(),null);
+                    intent.setData(uri);
+                    startActivity(intent);
+                }else{
+                    Toast.makeText(getApplicationContext(),"Los permisos no fueron aceptados",Toast.LENGTH_SHORT).show();
+                    dialogInterface.dismiss();
+                }
+            }
+        });
+        alertOpciones.show();
+    }
+
+    private void cargarDialogoRecomendacion() {
+        AlertDialog.Builder dialogo=new AlertDialog.Builder(this);
+        dialogo.setTitle("Permisos Desactivados");
+        dialogo.setMessage("Debe aceptar los permisos para el correcto funcionamiento de la App");
+
+        dialogo.setPositiveButton("Aceptar", new DialogInterface.OnClickListener() {
+            @Override
+            public void onClick(DialogInterface dialogInterface, int i) {
+                requestPermissions(new String[]{CAMERA},100);
+            }
+        });
+        dialogo.show();
     }
 }
